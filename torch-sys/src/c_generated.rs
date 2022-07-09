@@ -2751,12 +2751,16 @@ extern "C" {
         self_: *mut C_tensor,
         batch1_: *mut C_tensor,
         batch2_: *mut C_tensor,
+        beta_: *mut C_scalar,
+        alpha_: *mut C_scalar,
     );
     pub fn atg_baddbmm_(
         out__: *mut *mut C_tensor,
         self_: *mut C_tensor,
         batch1_: *mut C_tensor,
         batch2_: *mut C_tensor,
+        beta_: *mut C_scalar,
+        alpha_: *mut C_scalar,
     );
     pub fn atg_baddbmm_out(
         out__: *mut *mut C_tensor,
@@ -2764,6 +2768,8 @@ extern "C" {
         self_: *mut C_tensor,
         batch1_: *mut C_tensor,
         batch2_: *mut C_tensor,
+        beta_: *mut C_scalar,
+        alpha_: *mut C_scalar,
     );
     pub fn atg_bartlett_window(
         out__: *mut *mut C_tensor,

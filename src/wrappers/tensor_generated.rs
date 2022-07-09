@@ -3555,16 +3555,35 @@ impl Tensor {
         .unwrap()
     }
 
-    pub fn baddbmm(&self, batch1: &Tensor, batch2: &Tensor) -> Tensor {
-        self.f_baddbmm(batch1, batch2).unwrap()
+    pub fn baddbmm<S: Into<Scalar>>(
+        &self,
+        batch1: &Tensor,
+        batch2: &Tensor,
+        beta: S,
+        alpha: S,
+    ) -> Tensor {
+        self.f_baddbmm(batch1, batch2, beta, alpha).unwrap()
     }
 
-    pub fn baddbmm_(&mut self, batch1: &Tensor, batch2: &Tensor) -> Tensor {
-        self.f_baddbmm_(batch1, batch2).unwrap()
+    pub fn baddbmm_<S: Into<Scalar>>(
+        &mut self,
+        batch1: &Tensor,
+        batch2: &Tensor,
+        beta: S,
+        alpha: S,
+    ) -> Tensor {
+        self.f_baddbmm_(batch1, batch2, beta, alpha).unwrap()
     }
 
-    pub fn baddbmm_out(&self, out: &Tensor, batch1: &Tensor, batch2: &Tensor) -> Tensor {
-        self.f_baddbmm_out(out, batch1, batch2).unwrap()
+    pub fn baddbmm_out<S: Into<Scalar>>(
+        &self,
+        out: &Tensor,
+        batch1: &Tensor,
+        batch2: &Tensor,
+        alpha: S,
+        beta: S,
+    ) -> Tensor {
+        self.f_baddbmm_out(out, batch1, batch2, beta, alpha).unwrap()
     }
 
     pub fn bartlett_window(window_length: i64, options: (Kind, Device)) -> Tensor {

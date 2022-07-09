@@ -450,9 +450,9 @@ void atg_avg_pool3d(tensor *, tensor self, int64_t *kernel_size_data, int kernel
 void atg_avg_pool3d_backward(tensor *, tensor grad_output, tensor self, int64_t *kernel_size_data, int kernel_size_len, int64_t *stride_data, int stride_len, int64_t *padding_data, int padding_len, int ceil_mode, int count_include_pad, int64_t divisor_override_v, uint8_t divisor_override_null);
 void atg_avg_pool3d_backward_grad_input(tensor *, tensor grad_input, tensor grad_output, tensor self, int64_t *kernel_size_data, int kernel_size_len, int64_t *stride_data, int stride_len, int64_t *padding_data, int padding_len, int ceil_mode, int count_include_pad, int64_t divisor_override_v, uint8_t divisor_override_null);
 void atg_avg_pool3d_out(tensor *, tensor out, tensor self, int64_t *kernel_size_data, int kernel_size_len, int64_t *stride_data, int stride_len, int64_t *padding_data, int padding_len, int ceil_mode, int count_include_pad, int64_t divisor_override_v, uint8_t divisor_override_null);
-void atg_baddbmm(tensor *, tensor self, tensor batch1, tensor batch2);
-void atg_baddbmm_(tensor *, tensor self, tensor batch1, tensor batch2);
-void atg_baddbmm_out(tensor *, tensor out, tensor self, tensor batch1, tensor batch2);
+void atg_baddbmm(tensor *, tensor self, tensor batch1, tensor batch2, scalar beta, scalar alpha);
+void atg_baddbmm_(tensor *, tensor self, tensor batch1, tensor batch2, scalar beta, scalar alpha);
+void atg_baddbmm_out(tensor *, tensor out, tensor self, tensor batch1, tensor batch2, scalar beta, scalar alpha);
 void atg_bartlett_window(tensor *, int64_t window_length, int options_kind, int options_device);
 void atg_bartlett_window_periodic(tensor *, int64_t window_length, int periodic, int options_kind, int options_device);
 void atg_batch_norm(tensor *, tensor input, tensor weight, tensor bias, tensor running_mean, tensor running_var, int training, double momentum, double eps, int cudnn_enabled);

@@ -3250,23 +3250,23 @@ void atg_avg_pool3d_out(tensor *out__, tensor out, tensor self, int64_t *kernel_
   )
 }
 
-void atg_baddbmm(tensor *out__, tensor self, tensor batch1, tensor batch2) {
+void atg_baddbmm(tensor *out__, tensor self, tensor batch1, tensor batch2, scalar beta, scalar alpha) {
   PROTECT(
-    auto outputs__ = torch::baddbmm(*self, *batch1, *batch2);
+    auto outputs__ = torch::baddbmm(*self, *batch1, *batch2, *beta, *alpha);
     out__[0] = new torch::Tensor(outputs__);
   )
 }
 
-void atg_baddbmm_(tensor *out__, tensor self, tensor batch1, tensor batch2) {
+void atg_baddbmm_(tensor *out__, tensor self, tensor batch1, tensor batch2, scalar beta, scalar alpha) {
   PROTECT(
-    auto outputs__ = self->baddbmm_(*batch1, *batch2);
+    auto outputs__ = self->baddbmm_(*batch1, *batch2, *beta, *alpha);
     out__[0] = new torch::Tensor(outputs__);
   )
 }
 
-void atg_baddbmm_out(tensor *out__, tensor out, tensor self, tensor batch1, tensor batch2) {
+void atg_baddbmm_out(tensor *out__, tensor out, tensor self, tensor batch1, tensor batch2, scalar beta, scalar alpha) {
   PROTECT(
-    auto outputs__ = torch::baddbmm_out(*out, *self, *batch1, *batch2);
+    auto outputs__ = torch::baddbmm_out(*out, *self, *batch1, *batch2, *beta, *alpha);
     out__[0] = new torch::Tensor(outputs__);
   )
 }
