@@ -4,32 +4,15 @@
 //! https://github.com/huggingface/safetensors
 use crate::{Kind, TchError, Tensor};
 
+use std::convert::{TryFrom, TryInto};
 use std::path::Path;
-use std::collections::BTreeMap;
 
-use safetensors::tensor::{SafeTensors, Dtype, SafeTensorError, TensorView};
 use safetensors::tensor;
+use safetensors::tensor::{Dtype, SafeTensorError, SafeTensors, TensorView, View};
 
-
-impl crate::Tensor {
-    pub fn dtype_to_kind(dtype: safetensors::tensor::Dtype) -> Result<Kind, TchError> {
-        let kind =  match dtype {
-            Dtype::BOOL => Kind::Bool,
-            Dtype::U8 => Kind::Uint8,
-            Dtype::I8 => Kind::Int8,
-            Dtype::I16 => Kind::Int16,
-            Dtype::I32 => Kind::Int,
-            Dtype::I64 => Kind::Int64,
-            Dtype::BF16 => Kind::BFloat16,
-            Dtype::F16 => Kind::Half,
-            Dtype::F32 => Kind::Float,
-            Dtype::F64 => Kind::Double,
-            _ => return Err(TchError::Convert(format!("unsupported dtype in safetensor file"))),
-        };
-        Ok(kind)
-    }
-
-    pub fn kind_to_dtype(kind: Kind) -> Result<Dtype, TchError> {
+impl TryFrom<Kind> for Dtype {
+    type Error = TchError;
+    fn try_from(kind: Kind) -> Result<Self, Self::Error> {
         let dtype = match kind {
             Kind::Bool => Dtype::BOOL,
             Kind::Uint8 => Dtype::U8,
@@ -41,11 +24,86 @@ impl crate::Tensor {
             Kind::Half => Dtype::F16,
             Kind::Float => Dtype::F32,
             Kind::Double => Dtype::F64,
-            _ => return Err(TchError::Convert(format!("unsupported kind in safetensor file"))),
+            kind => return Err(TchError::Convert(format!("unsupported kind ({kind:?})"))),
         };
         Ok(dtype)
     }
+}
 
+impl TryFrom<Dtype> for Kind {
+    type Error = TchError;
+    fn try_from(dtype: Dtype) -> Result<Self, Self::Error> {
+        let kind = match dtype {
+            Dtype::BOOL => Kind::Bool,
+            Dtype::U8 => Kind::Uint8,
+            Dtype::I8 => Kind::Int8,
+            Dtype::I16 => Kind::Int16,
+            Dtype::I32 => Kind::Int,
+            Dtype::I64 => Kind::Int64,
+            Dtype::BF16 => Kind::BFloat16,
+            Dtype::F16 => Kind::Half,
+            Dtype::F32 => Kind::Float,
+            Dtype::F64 => Kind::Double,
+            dtype => return Err(TchError::Convert(format!("unsupported dtype {dtype:?}"))),
+        };
+        Ok(kind)
+    }
+}
+
+impl<'a> TryFrom<TensorView<'a>> for Tensor {
+    type Error = TchError;
+    fn try_from(view: TensorView<'a>) -> Result<Self, Self::Error> {
+        let size: Vec<i64> = view.shape().iter().map(|&x| x as i64).collect();
+        let kind: Kind = view.dtype().try_into()?;
+        Tensor::f_of_data_size(view.data(), &size, kind)
+    }
+}
+
+struct SafeView<'a> {
+    tensor: &'a Tensor,
+    shape: Vec<usize>,
+    dtype: Dtype,
+}
+
+impl<'a> TryFrom<&'a Tensor> for SafeView<'a> {
+    type Error = TchError;
+
+    fn try_from(tensor: &'a Tensor) -> Result<Self, Self::Error> {
+        if tensor.is_sparse() {
+            return Err(TchError::Convert("Cannot save sparse tensors".to_string()));
+        }
+        // TODO here it would be better to know if tensors `is_contiguous` which
+        // doesn't seem available.
+        let dtype = tensor.kind().try_into()?;
+        let shape: Vec<usize> = tensor.size().iter().map(|&x| x as usize).collect();
+        Ok(Self { tensor, shape, dtype })
+    }
+}
+
+impl<'a> View for SafeView<'a> {
+    type Data = Vec<u8>;
+
+    fn dtype(&self) -> Dtype {
+        self.dtype
+    }
+    fn shape(&self) -> &[usize] {
+        &self.shape
+    }
+
+    fn data(&self) -> Self::Data {
+        let mut data = vec![0; self.data_len()];
+        let numel = self.tensor.numel();
+        self.tensor.f_copy_data_u8(&mut data, numel).unwrap();
+        data
+    }
+
+    fn data_len(&self) -> usize {
+        let numel = self.tensor.numel();
+        numel * self.tensor.kind().elt_size_in_bytes()
+    }
+}
+
+impl crate::Tensor {
     /// Reads a safetensors file and returns some named tensors.
     pub fn read_safetensors<T: AsRef<Path>>(path: T) -> Result<Vec<(String, Tensor)>, TchError> {
         let file = std::fs::read(&path)?;
@@ -54,49 +112,44 @@ impl crate::Tensor {
             Ok(value) => value,
             Err(e) => match e {
                 SafeTensorError::IoError(e) => return Err(TchError::Io(e)),
-                _ => return Err(TchError::FileFormat(format!("unable to load safetensor file"))),
+                // Always reoutput the error message from the underlying error
+                // For easier debugging
+                e => {
+                    return Err(TchError::FileFormat(format!(
+                        "unable to load safetensor file : {e}"
+                    )))
+                }
             },
         };
 
-        let mut result = vec![];
-        for safetensor in safetensors.tensors() {
-            let view = safetensor.1;
-
-            let size: Vec<i64> = view.shape().iter().map(|&x| x as i64).collect();
-
-            let kind = Self::dtype_to_kind(view.dtype())?;
-            let tensor = Tensor::f_of_data_size(view.data(), &size, kind)?;
-            result.push((safetensor.0, tensor));
-        }
-
-        Ok(result)
+        safetensors
+            .tensors()
+            .into_iter()
+            .map(|(name, view)| -> Result<(String, Tensor), TchError> {
+                let tensor: Tensor = view.try_into()?;
+                Ok((name, tensor))
+            })
+            .collect()
     }
 
     /// Writes a tensor in the safetensors format.
     pub fn write_safetensors<S: AsRef<str>, T: AsRef<Tensor>, P: AsRef<Path>>(
-        ts: &[(S, T)],
+        tensors: &[(S, T)],
         path: P,
     ) -> Result<(), TchError> {
+        let views: Result<Vec<_>, TchError> = tensors
+            .into_iter()
+            .map(|(name, tensor)| -> Result<(&str, SafeView), TchError> {
+                let name = name.as_ref();
+                let tensor = tensor.as_ref();
+                let view: SafeView = tensor.try_into()?;
+                Ok((name, view))
+            })
+            .collect();
+        let views = views?;
 
-        let mut tensors: BTreeMap<String, TensorView> = BTreeMap::new();
-        for (name, tensor) in ts.iter() {
-            let t = tensor.as_ref();
-
-            let shape: Vec<usize> = t.size().iter().map(|&x| x as usize).collect();
-
-            let kind = t.f_kind()?;
-            let dtype = Self::kind_to_dtype(kind)?;
-
-            let numel = t.numel();
-
-            let mut content = vec![0u8; numel * kind.elt_size_in_bytes()];
-            t.f_copy_data_u8(&mut content, numel)?;
-
-            let view = TensorView::new(dtype, shape, &content);
-            tensors.insert(name.as_ref().to_string(), view);
-        }
-
-        // tensor::serialize_to_file(&tensors, &None, path.as_ref());
+        tensor::serialize_to_file(views, &None, path.as_ref())
+            .map_err(|e| TchError::Convert(format!("Error while saving safetensor file {e}")))?;
 
         Ok(())
     }
