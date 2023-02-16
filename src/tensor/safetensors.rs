@@ -81,8 +81,6 @@ impl<'a> TryFrom<&'a Tensor> for SafeView<'a> {
 }
 
 impl<'a> View for SafeView<'a> {
-    type Data = Vec<u8>;
-
     fn dtype(&self) -> Dtype {
         self.dtype
     }
@@ -90,7 +88,7 @@ impl<'a> View for SafeView<'a> {
         &self.shape
     }
 
-    fn data(&self) -> Self::Data {
+    fn data(&self) -> Cow<[u8]> {
         let mut data = vec![0; self.data_len()];
         let numel = self.tensor.numel();
         self.tensor.f_copy_data_u8(&mut data, numel).unwrap();
